@@ -1,9 +1,11 @@
-version: '3'
+version: '3.8'
 
 services:
   web:
     build: .
+    container_name: dictionary-app
     ports:
       - "5000:5000"
     volumes:
+      # Mount the app code for development (changes will reflect without rebuilding)
       - ./app:/app
