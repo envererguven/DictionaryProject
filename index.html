@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Turkish-English Dictionary</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <h1>Turkish-English Dictionary</h1>
+    <form method="post">
+        <input type="text" name="word" placeholder="Enter a Turkish word">
+        <button type="submit">Translate</button>
+    </form>
+    {% if translation %}
+        <h2>Translation: {{ translation }}</h2>
+    {% endif %}
+</body>
+</html>
