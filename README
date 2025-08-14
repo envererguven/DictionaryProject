@@ -1,0 +1,195 @@
+Turkish-English Dictionary Web App
+This is a simple web application that serves as a Turkish-English dictionary. When a user searches for a Turkish word, the application first checks its local SQLite database. If the word is found, it returns the English translation. If not, it fetches the translation from an external API, displays it to the user, and saves the new word pair in the database for future queries.
+This entire application is containerized using Docker for easy setup and deployment.
+Project Structure
+code
+Code
+.
+├── app
+│   ├── static
+│   │   └── styles.css
+│   ├── templates
+│   │   └── index.html
+│   ├── app.py
+│   └── db.py
+├── docker-compose.yml
+├── Dockerfile
+└── README.md
+How It Works
+Frontend: A simple HTML page with a search bar for users to enter a Turkish word.
+Backend (Python/Flask):
+Receives the search query from the user.
+Checks the local SQLite database for the translation.
+If the translation is found, it's returned to the user.
+If not found, it calls a free translation API to get the English meaning.
+The new translation is then saved to the SQLite database.
+The result is displayed on the web page.
+Database: A simple SQLite database to store the Turkish-English word pairs.
+Docker: The application is containerized, and a docker-compose.yml file is provided to run the application and manage its services.
+Code
+Here is all the code you'll need for this project.
+README.md
+This file! You can copy and paste the content from here.
+Backend: Python and Flask
+app/db.py
+This script will handle all the database interactions, including creating the table and inserting/querying words.
+code
+Python
+import sqlite3
+
+def init_db():
+    conn = sqlite3.connect('dictionary.db')
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS translations (
+            id INTEGER PRIMARY KEY,
+            turkish_word TEXT UNIQUE,
+            english_word TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+def get_word(turkish_word):
+    conn = sqlite3.connect('dictionary.db')
+    c = conn.cursor()
+    c.execute("SELECT english_word FROM translations WHERE turkish_word=?", (turkish_word,))
+    result = c.fetchone()
+    conn.close()
+    return result[0] if result else None
+
+def add_word(turkish_word, english_word):
+    conn = sqlite3.connect('dictionary.db')
+    c = conn.cursor()
+    c.execute("INSERT INTO translations (turkish_word, english_word) VALUES (?, ?)", (turkish_word, english_word))
+    conn.commit()
+    conn.close()
+app/app.py
+This is the main Flask application. It defines the web routes and the logic for translation.
+code
+Python
+from flask import Flask, render_template, request
+import requests
+from db import init_db, get_word, add_word
+
+app = Flask(__name__)
+
+# Initialize the database
+init_db()
+
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    translation = ''
+    if request.method == 'POST':
+        turkish_word = request.form['word']
+        
+        # First, check the local database
+        english_word = get_word(turkish_word)
+
+        if english_word:
+            translation = english_word
+        else:
+            # If not in the DB, fetch from a free API
+            # Using LibreTranslate API here. [1, 4]
+            response = requests.post("https://libretranslate.de/translate", json={
+                "q": turkish_word,
+                "source": "tr",
+                "target": "en"
+            })
+            
+            if response.status_code == 200:
+                translation_data = response.json()
+                if "translatedText" in translation_data:
+                    translated_text = translation_data["translatedText"]
+                    translation = translated_text
+                    
+                    # Save the new translation to the database
+                    add_word(turkish_word, translated_text)
+
+    return render_template('index.html', translation=translation)
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
+Frontend: Web Page
+app/templates/index.html
+A very basic HTML file for the user interface.
+code
+Html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Turkish-English Dictionary</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <h1>Turkish-English Dictionary</h1>
+    <form method="post">
+        <input type="text" name="word" placeholder="Enter a Turkish word">
+        <button type="submit">Translate</button>
+    </form>
+    {% if translation %}
+        <h2>Translation: {{ translation }}</h2>
+    {% endif %}
+</body>
+</html>
+app/static/styles.css
+Some simple styling to make the page look a bit better.
+code
+Css
+body {
+    font-family: sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    flex-direction: column;
+}
+Docker Setup
+Dockerfile
+This file tells Docker how to build the image for our application.
+code
+Dockerfile
+# Use an official Python runtime as a parent image
+FROM python:3.8-slim
+
+# Set the working directory in the container
+WORKDIR /app
+
+# Copy the current directory contents into the container at /app
+COPY ./app /app
+
+# Install any needed packages specified in requirements.txt
+# We will create this file in the next step
+RUN pip install Flask requests
+
+# Make port 5000 available to the world outside this container
+EXPOSE 5000
+
+# Run app.py when the container launches
+CMD ["python", "app.py"]
+docker-compose.yml
+This file is used to run the multi-container Docker application. In our case, it's just a single service, but it's good practice to use docker-compose.
+code
+Yaml
+version: '3'
+
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./app:/app
+How to Build and Run the Application
+Prerequisites
+Docker and Docker Compose must be installed on your machine.
+Build and Run Commands
+Clone the Repository (or create the files as described above).
+Open a terminal and navigate to the root directory of the project.
+Build and run the application using Docker Compose:
+code
+Bash
+docker-compose up --build
+Access the application:
+Open your web browser and go to http://localhost:5000.
+You should now see the dictionary web page. You can enter a Turkish word, and it will give you the English translation, saving it for future use.
