@@ -344,3 +344,8 @@ You should now see the Turkish-English Dictionary web page and be able to start 
     ```bash
     docker-compose down
     ```    This will stop and remove the container.
+
+If you need to drop the existing table
+----
+docker-compose exec web python ../dropdb.py
+
